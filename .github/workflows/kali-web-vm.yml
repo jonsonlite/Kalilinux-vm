@@ -1,0 +1,60 @@
+name: Kali-Web-VM
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 */6 * * *"   # revive automático cada 6 horas
+
+jobs:
+  vm:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+
+    steps:
+    - name: Actualizar sistema e instalar dependencias
+      run: |
+        sudo apt update
+        sudo apt install -y qemu-kvm qemu-utils novnc websockify x11-apps wget
+
+    - name: Descargar imagen oficial de Kali Linux (cloud)
+      run: |
+        wget https://cdn.kali.org/images/kali-2024.3/kali-linux-2024.3-cloud-amd64.img -O kali.img
+        qemu-img resize kali.img +10G
+
+    - name: Arrancar noVNC
+      run: |
+        websockify 6080 --web=/usr/share/novnc/ &
+        echo "noVNC en puerto 6080"
+
+    - name: Iniciar Kali Linux con escritorio XFCE
+      run: |
+        qemu-system-x86_64 \
+          -m 4096 \
+          -smp 2 \
+          -enable-kvm \
+          -drive file=kali.img,if=virtio \
+          -device virtio-net,netdev=n0 \
+          -netdev user,id=n0,hostfwd=tcp::2222-:22 \
+          -vnc :0 \
+          -usb -device usb-tablet &
+        
+        echo "Esperando 35s que Kali arranque..."
+        sleep 35
+        
+        echo "Instalando escritorio dentro de Kali (puede tardar)"
+        
+        sshpass -p "kali" ssh -o StrictHostKeyChecking=no -p 2222 kali@localhost "
+          sudo apt update &&
+          sudo apt install -y kali-desktop-xfce xrdp tightvncserver
+        "
+
+    - name: Mantener activo el servidor
+      run: |
+        echo "Kali está vivo y accesible..."
+        sleep 21600
+
+
+
+    - name: Instalar Tailscale
+      run: |
+        curl -fsSL https://tailscale.com/install.sh | sh
+        sudo tailscale up --authkey ${{ secrets.TS_KEY }} --hostname kali-github

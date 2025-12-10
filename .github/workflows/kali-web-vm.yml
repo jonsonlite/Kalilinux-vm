@@ -20,6 +20,11 @@ jobs:
         wget https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img -O disk.img
         qemu-img resize disk.img +8G
 
+    - name: Instalar y conectar Tailscale
+      run: |
+        curl -fsSL https://tailscale.com/install.sh | sh
+        sudo tailscale up --authkey ${{ secrets.TS_KEY }} --hostname github-vm
+
     - name: Iniciar servidor noVNC
       run: |
         mkdir -p ~/.vnc
@@ -43,8 +48,3 @@ jobs:
       run: |
         echo "Servidor vivo..."
         sleep 21600
-
-    - name: Instalar y conectar Tailscale
-      run: |
-        curl -fsSL https://tailscale.com/install.sh | sh
-        sudo tailscale up --authkey ${{ secrets.TS_KEY }} --hostname github-vm

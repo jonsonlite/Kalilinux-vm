@@ -17,7 +17,8 @@ jobs:
 
     - name: Descargar imagen oficial de Kali Linux (cloud)
       run: |
-        wget https://cdn.kali.org/images/kali-2024.3/kali-linux-2024.3-cloud-amd64.img -O kali.img
+        wget https://kali.download/cloud-images/current/kali-linux-2025.3-cloud-genericcloud-amd64.tar.xz
+        tar -xJf kali-linux-2025.3-cloud-genericcloud-amd64.tar.xz -O kali.img
         qemu-img resize kali.img +10G
 
     - name: Arrancar noVNC

@@ -1,8 +1,8 @@
-name: Kali-Web-VM
+name: VM-Web
 on:
   workflow_dispatch:
   schedule:
-    - cron: "0 */6 * * *"   # revive automático cada 6 horas
+    - cron: "0 */6 * * *"
 
 jobs:
   vm:
@@ -10,52 +10,41 @@ jobs:
     timeout-minutes: 350
 
     steps:
-    - name: Actualizar sistema e instalar dependencias
+    - name: Instalar dependencias
       run: |
         sudo apt update
-        sudo apt install -y qemu-kvm qemu-utils novnc websockify x11-apps wget
+        sudo apt install -y qemu-kvm qemu-utils novnc websockify x11-apps
 
-    - name: Descargar imagen oficial de Kali Linux (cloud)
+    - name: Descargar imagen de la VM (Ubuntu Mini)
       run: |
-        wget https://kali.download/cloud-images/current/kali-linux-2025.3-cloud-genericcloud-amd64.tar.xz
-        tar -xJf kali-linux-2025.3-cloud-genericcloud-amd64.tar.xz -O kali.img
-        qemu-img resize kali.img +10G
+        wget https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img -O disk.img
+        qemu-img resize disk.img +8G
 
-    - name: Arrancar noVNC
+    - name: Iniciar servidor noVNC
       run: |
+        mkdir -p ~/.vnc
         websockify 6080 --web=/usr/share/novnc/ &
-        echo "noVNC en puerto 6080"
+        echo "noVNC listo en puerto 6080"
 
-    - name: Iniciar Kali Linux con escritorio XFCE
+    - name: Iniciar VM con interfaz gráfica
       run: |
         qemu-system-x86_64 \
           -m 4096 \
           -smp 2 \
+          -drive file=disk.img,if=virtio \
           -enable-kvm \
-          -drive file=kali.img,if=virtio \
+          -vnc :0 \
           -device virtio-net,netdev=n0 \
           -netdev user,id=n0,hostfwd=tcp::2222-:22 \
-          -vnc :0 \
           -usb -device usb-tablet &
-        
-        echo "Esperando 35s que Kali arranque..."
-        sleep 35
-        
-        echo "Instalando escritorio dentro de Kali (puede tardar)"
-        
-        sshpass -p "kali" ssh -o StrictHostKeyChecking=no -p 2222 kali@localhost "
-          sudo apt update &&
-          sudo apt install -y kali-desktop-xfce xrdp tightvncserver
-        "
+        echo "VM iniciada"
 
-    - name: Mantener activo el servidor
+    - name: Mantener workflow vivo
       run: |
-        echo "Kali está vivo y accesible..."
+        echo "Servidor vivo..."
         sleep 21600
 
-
-
-    - name: Instalar Tailscale
+    - name: Instalar y conectar Tailscale
       run: |
         curl -fsSL https://tailscale.com/install.sh | sh
-        sudo tailscale up --authkey ${{ secrets.TS_KEY }} --hostname kali-github
+        sudo tailscale up --authkey ${{ secrets.TS_KEY }} --hostname github-vm
